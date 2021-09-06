@@ -94,12 +94,13 @@ def block_watch_task(in_queue, out_queue):
                 if len(block_lines) >= 2:
                     json_str = "\n".join(block_lines[1:])
             elif is_timestamp_only and len(block_lines) >= 3:   # response
-                mtga_logger.info("{}is response line: {} / log_line {}".format(util.ld(), line, log_line))  #debug
-                request_or_response = "response"
-                block_title = block_lines[1].split("<==")[1].split("(")[0].strip()
-                if block_lines[2].startswith("{") or block_lines[2].startswith("["):
-                    mtga_logger.info("{}is response json: {} / log_line {}".format(util.ld(), "\n".join(block_lines[2:]), log_line))   #debug
-                    json_str = "\n".join(block_lines[2:])
+                if block_lines[1].startswith("<=="):
+                    request_or_response = "response"
+                    block_title = block_lines[1].split("<==")[1].split("(")[0].strip()
+                    if block_lines[2].startswith("{") or block_lines[2].startswith("["):
+                        json_str = "\n".join(block_lines[2:])
+                elif block_lines[1].startswith("("):    #transactionId
+                    block_title = " ".join(block_lines[1].split(" ")[1:-1])
 
         if json_str:
             if not json_str.startswith("[Message summarized"):
@@ -136,8 +137,8 @@ def json_blob_reader_task(in_queue, out_queue):
             if isinstance(blob, dict) and "clientId" in blob["authenticateResponse"]:
                 # screw it, no one else is going to use this message, mess up the timestamp, who cares
                 with mtga_watch_app.game_lock:
-                    if mtga_watch_app.player_id != blob["authenticateResponse"]['clientId']:
-                        mtga_watch_app.player_id = blob["authenticateResponse"]['clientId']
+                    if mtga_watch_app.player_id != blob["authenticateResponse"]["clientId"]:
+                        mtga_watch_app.player_id = blob["authenticateResponse"]["clientId"]
                         mtga_logger.debug("{}check_for_client_id: got new clientId".format(util.ld()))
                         mtga_watch_app.save_settings()
                 general_output_queue.put({"authenticateResponse": blob["authenticateResponse"]})

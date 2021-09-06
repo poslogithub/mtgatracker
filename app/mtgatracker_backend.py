@@ -64,7 +64,7 @@ async def output(websocket):
         message = False
     if message:
         now = datetime.datetime.utcnow().isoformat() + 'Z'
-        message['now'] = now
+        message["now"] = now
         if isinstance(message, dict) and "error" in message.keys():
             message["data_type"] = "error"
         else:
@@ -172,6 +172,9 @@ if __name__ == "__main__":
                             elif line.strip().startswith("<== "):   # is response
                                 current_block += line.strip() + "\n"
                                 is_resp = True
+                            elif line.strip().startswith("("):   # sessionId
+                                current_block += line.strip() + "\n"
+                                in_uctl = False
                             elif is_resp:   # response value
                                 current_block += line.strip() + "\n"
                                 in_uctl = False
@@ -217,6 +220,9 @@ if __name__ == "__main__":
                                 elif line.strip().startswith("<== "):   # is response
                                     current_block += line.strip() + "\n"
                                     is_resp = True
+                                elif line.strip().startswith("("):   # sessionId
+                                    current_block += line.strip() + "\n"
+                                    in_uctl = False
                                 elif is_resp:   # response value
                                     current_block += line.strip() + "\n"
                                     in_uctl = False
