@@ -13,6 +13,8 @@ import asyncio
 import datetime
 import json
 import websockets
+import websockets.legacy
+import websockets.legacy.server
 import time
 from pynput import mouse
 from app.queues import all_die_queue, game_state_change_queue, general_output_queue, decklist_change_queue
@@ -64,7 +66,7 @@ async def output(websocket):
         message = False
     if message:
         now = datetime.datetime.utcnow().isoformat() + 'Z'
-        message["now"] = now
+        message['now'] = now
         if isinstance(message, dict) and "error" in message.keys():
             message["data_type"] = "error"
         else:
