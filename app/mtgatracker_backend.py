@@ -7,7 +7,7 @@ sys.path.append(path_to_root)
 import threading
 import argparse
 from app import tasks, queues
-from util import KillableTailer
+from util import KillableTailer, all_mtga_cards
 from queue import Empty
 import asyncio
 import datetime
@@ -129,6 +129,31 @@ def start_mouse_listener():
 
 
 if __name__ == "__main__":
+    CARD_DICTIONARY_FILENAME = "CardDictionary.csv"
+    APPEND_FILENAME = "Append.csv"
+    print("Generate "+CARD_DICTIONARY_FILENAME)
+    card_dictionary_csv = []
+    for card in all_mtga_cards.cards:
+        line = card.pretty_name + "," + card.pretty_name + "\n"
+        if line not in card_dictionary_csv:
+            card_dictionary_csv.append(line)
+    try:
+        with open(CARD_DICTIONARY_FILENAME, "w", encoding="utf-8") as fw:
+            for line in card_dictionary_csv:
+                fw.write(line)
+            print(os.path.abspath(CARD_DICTIONARY_FILENAME) + " was generated")
+    except:
+        print("Failed to generate "+CARD_DICTIONARY_FILENAME)
+    if os.path.exists(APPEND_FILENAME):
+        print("Append "+APPEND_FILENAME+" to "+CARD_DICTIONARY_FILENAME)
+        try:
+            with open(CARD_DICTIONARY_FILENAME, "a", encoding="utf-8") as fa:
+                with open(APPEND_FILENAME, "r", encoding="utf-8") as fr:
+                    fa.write(fr.read())
+                    print(os.path.abspath(APPEND_FILENAME) + " was appended")
+        except:
+            print("Failed to append "+APPEND_FILENAME)
+
     print("MTGA.exe running check")
     mtga_running = False
     while not mtga_running:
@@ -151,7 +176,7 @@ if __name__ == "__main__":
                 print("MTGA.exe running check: NG")
 
     print("starting websocket server with port {}".format(args.port))
-    start_server = websockets.serve(handler, '127.0.0.1', args.port)
+    start_server = websockets.serve(handler, '127.0.0.1', args.port, ping_timeout=None) # タイムアウトを防ぐためにping_timeout=Noneを設定
     asyncio.get_event_loop().run_until_complete(start_server)
 
     print("starting block watch task server")
