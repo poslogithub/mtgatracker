@@ -134,9 +134,14 @@ if __name__ == "__main__":
     print("Generate "+CARD_DICTIONARY_FILENAME)
     card_dictionary_csv = []
     for card in all_mtga_cards.cards:
-        line = card.pretty_name + "," + card.pretty_name + "\n"
-        if line not in card_dictionary_csv:
-            card_dictionary_csv.append(line)
+        if (not card.is_token and   # トークンはGathererに画像が無いので除外
+            not card.is_digital_only and    # デジタル専用カードもGathererに画像が無いので除外
+            not card.set == "ARENASUP"):    # ARENASUPはイベント用紋章とかなので除外
+            # ダンジョンはGathererに画像があるので除外しない
+            line = card.pretty_name + "," + card.pretty_name + "\n"
+            if line not in card_dictionary_csv:
+                card_dictionary_csv.append(line)
+    card_dictionary_csv.sort()
     try:
         with open(CARD_DICTIONARY_FILENAME, "w", encoding="utf-8") as fw:
             for line in card_dictionary_csv:
@@ -155,6 +160,8 @@ if __name__ == "__main__":
             print("Failed to append "+APPEND_FILENAME)
 
     print("MTGA.exe running check")
+    root = Tk()
+    root.withdraw()
     mtga_running = False
     while not mtga_running:
         for proc in psutil.process_iter():
@@ -166,8 +173,6 @@ if __name__ == "__main__":
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 pass
         if not mtga_running:
-            root = Tk()
-            root.withdraw()
             ans = messagebox.askyesno("MTG Arena 起動確認", "MTG Arenaが起動していない可能性があります。\nはい: 再試行\nいいえ: 無視して続行")
             if ans == True:
                 pass
