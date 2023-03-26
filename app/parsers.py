@@ -10,6 +10,33 @@ from app.models.card import Ability
 from mtga import all_mtga_cards
 
 
+class DraftPickKey:
+    REQUEST = "request"
+    PAYLOAD = "Payload"
+    DRAFT_ID = "DraftId"
+    GRP_ID = "GrpId"
+    PACK = "Pack"
+    PICK = "Pick"
+    EVENT = "draft_pick_event"
+    CARD_NAME = "CardName"
+
+class DraftNotifyKey:
+    PAYLOAD = "Payload"
+    DRAFT_ID = "draftId"
+    GRP_ID = "GrpId"
+    SELF_PACK = "SelfPack"
+    SELF_PICK = "SelfPick"
+    PACK_CARDS = "PackCards"
+    EVENT = "draft_pack_event"
+    PACK = "Pack"
+    PICK = "Pick"
+    MYTHIC_RARE = "Mythic Rare"
+    RARE = "Rare"
+    UNCOMMON = "Uncommon"
+    COMMON = "Common"
+    BASIC = "Basic"
+
+
 @util.debug_log_trace
 def parse_jsonrpc_blob(blob):
     pass
@@ -109,6 +136,71 @@ def parse_draft_status(blob):
         draft_history[draftId] = {'picks': picks, 'pack': pack, 'picknum': blob["pickNumber"], 'packnum': blob["packNumber"]}
     else:
         draft_history[draftId] = None
+
+
+@util.debug_log_trace
+def parse_draft_pick(blob, title):
+    # get request
+    if DraftPickKey.REQUEST not in blob:
+        return
+    else:
+        blob = json.loads(blob[DraftPickKey.REQUEST])
+
+    # get Payload
+    if DraftPickKey.PAYLOAD not in blob:
+        return
+    else:
+        blob = json.loads(blob[DraftPickKey.PAYLOAD])
+
+    grp_id = blob.get(DraftPickKey.GRP_ID)
+    card = all_mtga_cards.find_one(grp_id)
+    card_name = card.pretty_name
+
+    queue_obj = {
+        DraftPickKey.EVENT: {
+            DraftPickKey.CARD_NAME: card_name
+        }
+    }
+
+    general_output_queue.put(queue_obj)
+
+
+@util.debug_log_trace
+def parse_draft_notify(blob, title):
+    app.mtga_app.mtga_logger.info("{}".format(pprint.pformat(blob)))
+
+    rare = []
+    uncommon = []
+    common = []
+    basic = []
+
+    pack_cards = blob.get(DraftNotifyKey.PACK_CARDS).split(",")
+    pack_card_gids = [int(s) for s in pack_cards]
+
+    for grp_id in pack_card_gids:
+        card = all_mtga_cards.find_one(grp_id)
+        match card.rarity:
+            case DraftNotifyKey.BASIC:
+                basic.append(card.pretty_name)
+            case DraftNotifyKey.COMMON:
+                common.append(card.pretty_name)
+            case DraftNotifyKey.UNCOMMON:
+                uncommon.append(card.pretty_name)
+            case DraftNotifyKey.RARE | DraftNotifyKey.MYTHIC_RARE:
+                rare.append(card.pretty_name)
+
+    queue_obj = {
+        DraftNotifyKey.EVENT: {
+            DraftNotifyKey.PACK: blob.get(DraftNotifyKey.SELF_PACK),
+            DraftNotifyKey.PICK: blob.get(DraftNotifyKey.SELF_PICK),
+            DraftNotifyKey.BASIC: basic,
+            DraftNotifyKey.COMMON: common,
+            DraftNotifyKey.UNCOMMON: uncommon,
+            DraftNotifyKey.RARE: rare
+        }
+    }
+
+    general_output_queue.put(queue_obj)
 
 
 @util.debug_log_trace
