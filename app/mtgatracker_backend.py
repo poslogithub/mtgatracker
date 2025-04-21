@@ -19,6 +19,7 @@ import time
 from app.queues import all_die_queue, game_state_change_queue, general_output_queue, decklist_change_queue
 import psutil
 from tkinter import Tk, messagebox
+import subprocess
 
 arg_parser = argparse.ArgumentParser()
 arg_parser.add_argument('-i', '--log_file', default=None)
@@ -162,6 +163,8 @@ if __name__ == "__main__":
             elif ans == False:
                 mtga_running = True
                 print("MTGA.exe running check: NG")
+    
+    ans = messagebox.showinfo("MTG Arena ホーム画面確認", "MTG Arenaのホーム画面が表示されていることを確認してください。")
 
     print("starting websocket server with port {}".format(args.port))
     start_server = websockets.serve(handler, '127.0.0.1', args.port, ping_timeout=None) # タイムアウトを防ぐためにping_timeout=Noneを設定
@@ -233,6 +236,11 @@ if __name__ == "__main__":
         print("starting to tail file: {}".format(args.log_file))
         if args.log_file:
             with open(args.log_file, encoding="utf_8_sig") as log_file:
+                # commentary_backendを起動
+                cmd = [r"D:\\github\\mtga-commentary-automation\\dist\\commentary_backend\\commentary_backend.exe"]
+                wd = r"D:\\github\\mtga-commentary-automation\\dist\\commentary_backend"
+                subprocess.Popen(cmd, cwd=wd)
+                
                 kt = KillableTailer(log_file, queues.all_die_queue)
                 kt.seek_end()
                 in_uctl = False # uctl means UnityCrossThreadLogger

@@ -61,8 +61,15 @@ class Player(object):
         elif name == "ZoneType_Battlefield":
             return self.battlefield
 
-    def get_location_of_instance(self, instance_id):
+    def get_location_of_instance(self, instance_id, messages_zones=None):
         for zone in self.all_zones:
+            for card in zone.cards:
+                if card.game_id == instance_id or instance_id in card.previous_iids:
+                    return card, zone
+            for ability in zone.abilities:
+                if ability.game_id == instance_id:
+                    return ability, zone
+        for zone in messages_zones:
             for card in zone.cards:
                 if card.game_id == instance_id or instance_id in card.previous_iids:
                     return card, zone
@@ -71,8 +78,8 @@ class Player(object):
                     return ability, zone
         return None, None
 
-    def put_instance_id_in_zone(self, instance_id, owner_id, zone):
-        card, current_zone = self.get_location_of_instance(instance_id)
+    def put_instance_id_in_zone(self, instance_id, owner_id, zone, messages_zones=None):
+        card, current_zone = self.get_location_of_instance(instance_id, messages_zones)
         if current_zone:
             if current_zone != zone:
                 # mtga_logger.info("-- iid {} => {}".format(instance_id, card))
