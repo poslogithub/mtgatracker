@@ -130,3 +130,5 @@ app/MatchGameRoomStateChangedEvent_end.json
 app/MatchGameRoomStateChangedEvent_start.json
 app/blog.json
 blob.txt
+app/sample.json
+blob.txt
