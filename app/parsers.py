@@ -332,7 +332,6 @@ def build_event_texts_from_iid_or_grpid(iid, game, grpid=None):
 @util.debug_log_trace
 def parse_game_state_message(message, timestamp=None):
     # DOM: ok
-    #print("parse_game_state_message")
     import app.mtga_app as mtga_app
     with mtga_app.mtga_watch_app.game_lock:  # the game state may become inconsistent in between these steps, so lock it
         if "turnInfo" in message.keys():
@@ -391,7 +390,7 @@ def parse_game_state_message(message, timestamp=None):
                     general_output_queue.put(queue_obj)
                 if "step" in message["turnInfo"].keys():
                     mtga_app.mtga_watch_app.game.current_phase += "-{}".format(message["turnInfo"]["step"])
-            mtga_app.mtga_logger.debug(message["turnInfo"])
+            #mtga_app.mtga_logger.debug(message["turnInfo"])
         if 'gameInfo' in message.keys():
             #print("gameInfo")
             if 'matchState' in message['gameInfo']:
@@ -405,27 +404,49 @@ def parse_game_state_message(message, timestamp=None):
                     parse_game_results(True, match_id, results)
                 if message['gameInfo']['matchState'] == "MatchState_GameInProgress" and \
                         game_number > max(len(mtga_app.mtga_watch_app.match.game_results), 1):
+                    # set up shared zones
+                    shared_suppressed = Zone("suppressed")
+                    shared_pending = Zone("pending")
+                    shared_command = Zone("command")
+                    shared_stack = Zone("stack")
                     shared_battlefield = Zone("battlefield")
                     shared_exile = Zone("exile")
                     shared_limbo = Zone("limbo")
-                    shared_stack = Zone("stack")
                     new_hero = Player(mtga_app.mtga_watch_app.game.hero.player_name,
                                       mtga_app.mtga_watch_app.game.hero.player_id,
                                       mtga_app.mtga_watch_app.game.hero.seat,
-                                      shared_battlefield, shared_exile, shared_limbo, shared_stack,
+                                      shared_suppressed, 
+                                      shared_pending, 
+                                      shared_command, 
+                                      shared_stack, 
+                                      shared_battlefield,
+                                      shared_exile, 
+                                      shared_limbo, 
                                       mtga_app.mtga_watch_app.game.hero._deck_cards)
 
                     new_oppo = Player(mtga_app.mtga_watch_app.game.opponent.player_name,
                                       mtga_app.mtga_watch_app.game.opponent.player_id,
                                       mtga_app.mtga_watch_app.game.opponent.seat,
-                                      shared_battlefield, shared_exile, shared_limbo, shared_stack,
+                                      shared_suppressed, 
+                                      shared_pending, 
+                                      shared_command, 
+                                      shared_stack, 
+                                      shared_battlefield,
+                                      shared_exile, 
+                                      shared_limbo, 
                                       mtga_app.mtga_watch_app.game.opponent._deck_cards)
                     new_hero.is_hero = True
                     if mtga_app.mtga_watch_app.intend_to_join_game_with:
                         new_hero.original_deck = mtga_app.mtga_watch_app.intend_to_join_game_with
                         new_match_id = match_id_raw + "-game{}-{}".format(game_number, new_hero.player_id)
-                        mtga_app.mtga_watch_app.game = Game(new_match_id, new_hero, new_oppo, shared_battlefield,
-                                                            shared_exile, shared_limbo, shared_stack,
+                        mtga_app.mtga_watch_app.game = Game(new_match_id, new_hero, new_oppo, 
+                                                            shared_suppressed,
+                                                            shared_pending,
+                                                            shared_command,
+                                                            shared_stack,
+                                                            shared_battlefield,
+                                                            shared_exile, 
+                                                            shared_limbo, 
                                                             mtga_app.mtga_watch_app.match.event_id,
                                                             mtga_app.mtga_watch_app.match.opponent_rank)
         if 'annotations' in message.keys():
@@ -535,19 +556,21 @@ def parse_game_state_message(message, timestamp=None):
                 if instance_id in mtga_app.mtga_watch_app.game.ignored_iids:
                     continue
                 owner = object['controllerSeatId']
-                type = object["type"]
-                zone = object['zoneId']
+                type = object['type']
+                zone_id = object['zoneId']
                 if type not in ["GameObjectType_Card", "GameObjectType_Ability", "GameObjectType_SplitCard", "GameObjectType_Token"]:
                     mtga_app.mtga_watch_app.game.ignored_iids.add(instance_id)
                 else:
-                    player, zone = mtga_app.mtga_watch_app.game.get_owner_zone_tup(zone)
+                    player, zone = mtga_app.mtga_watch_app.game.get_owner_zone_tup(zone_id)
                     if zone:
                         if not player:
                             player = mtga_app.mtga_watch_app.game.hero
                             # if zone is shared, don't care what player we use to put this card into it
                         assert isinstance(player, Player)
                         if type in ["GameObjectType_Card", "GameObjectType_SplitCard", "GameObjectType_Token"]: # 2022/04/20 GameObjectType_Tokenを追加
-                            player.put_instance_id_in_zone(instance_id, owner, zone, message.zones)
+                            if not message['zones']:
+                                print("message: {}".format(message))
+                            player.put_instance_id_in_zone(instance_id, owner, zone, message['zones'])
                             zone.match_game_id_to_card(instance_id, card_id)
                         elif type == "GameObjectType_Ability":
                             source_instance_id = object['parentId']
@@ -720,10 +743,23 @@ def parse_game_state_message(message, timestamp=None):
 @util.debug_log_trace
 def parse_zone(zone_blob):
     import app.mtga_app as mtga_app
-    trackable_zones = ["ZoneType_Hand", "ZoneType_Library", "ZoneType_Graveyard", "ZoneType_Exile", "ZoneType_Limbo",
-                       "ZoneType_Stack", "ZoneType_Battlefield"]
+    trackable_zones = [
+        "ZoneType_Revealed", 
+        "ZoneType_Suppressed", 
+        "ZoneType_Pending", 
+        "ZoneType_Command", 
+        "ZoneType_Stack", 
+        "ZoneType_Battlefield",
+        "ZoneType_Exile", 
+        "ZoneType_Limbo",
+        "ZoneType_Hand", 
+        "ZoneType_Library", 
+        "ZoneType_Graveyard", 
+        "ZoneType_Sideboard"
+        ]
     zone_type = zone_blob["type"]
     if zone_type not in trackable_zones:
+        mtga_app.mtga_logger.warning("Ignoring zone of type: {}".format(zone_type))
         return []
     owner_seat = None
     mtga_app.mtga_watch_app.game.register_zone(zone_blob)  # make sure we will find the zone later
@@ -871,14 +907,31 @@ def parse_match_playing(blob):
         if "deck" not in temp_players[player_idx]:
             temp_players[player_idx]["deck"] = []
     # set up shared zones
+    shared_suppressed = Zone("suppressed")
+    shared_pending = Zone("pending")
+    shared_command = Zone("command")
+    shared_stack = Zone("stack")
     shared_battlefield = Zone("battlefield")
     shared_exile = Zone("exile")
     shared_limbo = Zone("limbo")
-    shared_stack = Zone("stack")
-    player1 = Player(temp_players[1]["name"], temp_players[1]["player_id"], 1, shared_battlefield,
-                     shared_exile, shared_limbo, shared_stack, temp_players[1]["deck"])
-    player2 = Player(temp_players[2]["name"], temp_players[2]["player_id"], 2, shared_battlefield,
-                     shared_exile, shared_limbo, shared_stack, temp_players[2]["deck"])
+    player1 = Player(temp_players[1]["name"], temp_players[1]["player_id"], 1, 
+                     shared_suppressed, 
+                     shared_pending, 
+                     shared_command, 
+                     shared_stack, 
+                     shared_battlefield,
+                     shared_exile, 
+                     shared_limbo, 
+                     temp_players[1]["deck"])
+    player2 = Player(temp_players[2]["name"], temp_players[2]["player_id"], 2, 
+                     shared_suppressed, 
+                     shared_pending, 
+                     shared_command, 
+                     shared_stack, 
+                     shared_battlefield,
+                     shared_exile, 
+                     shared_limbo, 
+                     temp_players[2]["deck"])
     with mtga_app.mtga_watch_app.game_lock:
         mtga_app.mtga_watch_app.match.event_id = event_id
         if mtga_app.mtga_watch_app.player_id == player1.player_id:
@@ -908,6 +961,13 @@ def parse_match_playing(blob):
         event_texts = [hero_text, " vs ", oppo_text]
         queue_obj = {"game_history_event": event_texts}
         general_output_queue.put(queue_obj)
-        mtga_app.mtga_watch_app.game = Game(match_id, hero, opponent, shared_battlefield, shared_exile, shared_limbo,
-                                            shared_stack, event_id, opponent_rank)
+        mtga_app.mtga_watch_app.game = Game(match_id, hero, opponent, 
+                                            shared_suppressed,
+                                            shared_pending,
+                                            shared_command,
+                                            shared_stack,
+                                            shared_battlefield,
+                                            shared_exile, 
+                                            shared_limbo, 
+                                            event_id, opponent_rank)
         mtga_app.mtga_watch_app.game.events.append(queue_obj["game_history_event"])

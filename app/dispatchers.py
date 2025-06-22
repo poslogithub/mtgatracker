@@ -105,6 +105,7 @@ def dispatch_gre_to_client(blob):
                 pass
             elif message_type in ["GREMessageType_GameStateMessage", "GREMessageType_QueuedGameStateMessage"]:
                 game_state_message = message['gameStateMessage']
+                app.mtga_app.mtga_logger.debug(' transactionId: '+blob['transactionId'] if 'transactionId' in blob else "No transactionId")
                 try:
                     parsers.parse_game_state_message(game_state_message, blob["timestamp"] if "timestamp" in blob.keys() else None)
                 except:

@@ -145,6 +145,8 @@ if __name__ == "__main__":
 
     print("MTGA.exe running check")
     root = Tk()
+    root.attributes("-topmost", True)  # ルートウィンドウを最前面に
+    root.focus_force()  # フォーカスを強制的に取得
     root.withdraw()
     mtga_running = False
     while not mtga_running:
