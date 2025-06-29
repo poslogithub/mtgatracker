@@ -125,8 +125,6 @@ class Player(object):
             if current_zone != zone:
                 mtga_logger.debug("-- iid {} => {}".format(instance_id, card))
                 current_zone.transfer_card_to(card, zone)
-                #zone.cards.append(card)
-                #current_zone.cards.remove(card)
         else:
             unknown_card = GameCard("unknown", "unknown", [], [], "", "", -1, "Unknown", -1, -1, owner_id, instance_id)
             mtga_logger.debug("-- iid {} => {}".format(instance_id, unknown_card))
