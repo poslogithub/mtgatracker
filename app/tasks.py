@@ -128,7 +128,6 @@ def block_watch_task(in_queue, out_queue):
                     out_queue.put(blob)
                 except Exception as e:
                     mtga_logger.error("{}Could not parse json_blob `{}`".format(util.ld(), json_str))
-                    mtga_logger.error("{}Could not parse json_blob `{}`".format(util.ld(), json_str))
                     mtga_logger.error("{}".format(traceback.format_exc())) #debug
                     mtga_watch_app.send_error("Could not parse json_blob {}".format(json_str))
 

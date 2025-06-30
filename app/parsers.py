@@ -547,7 +547,7 @@ def parse_game_state_message(message, timestamp=None):
                             # if zone is shared, don't care what player we use to put this card into it
                         assert isinstance(player, Player)
                         if type in ["GameObjectType_Card", "GameObjectType_SplitCard", "GameObjectType_Token"]: # 2022/04/20 GameObjectType_Tokenを追加
-                            player.put_instance_id_in_zone(instance_id, owner, zone, message.zones)
+                            player.put_instance_id_in_zone(instance_id, owner, zone)
                             zone.match_game_id_to_card(instance_id, card_id)
                         elif type == "GameObjectType_Ability":
                             source_instance_id = object['parentId']
